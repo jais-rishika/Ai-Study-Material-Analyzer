@@ -1,8 +1,9 @@
     import { StudyMaterialSchema, studySchema } from "./schema";
+    import { extractPdfPages } from "./extractPdfPages";
     import ai from "@/ai/ai";
     import prompt from "@/features/study/lib/prompt";
 
-    export async function generateStudyMaterialWithAI(file: File,pages?: {fromPage: number | null; toPage: number | null;}){
+    export async function generateStudyMaterialWithAI(file: File,pages?: {fromPage: number ; toPage: number ;}){
         
         try{
             if(!file){
@@ -10,8 +11,11 @@
                 return null;
             }
 
-            const arrayBuffer = await file.arrayBuffer();
-            const base64Pdf = Buffer.from(arrayBuffer).toString("base64");
+            const pdfToSend = pages
+            ? await extractPdfPages(file, pages.fromPage, pages.toPage)
+            : file;
+
+            const base64Pdf = Buffer.from(await pdfToSend.arrayBuffer()).toString("base64");  
         
             const interaction = await ai.interactions.create({
             model: "gemini-3.5-flash",

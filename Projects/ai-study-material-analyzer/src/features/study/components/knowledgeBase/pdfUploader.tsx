@@ -22,6 +22,10 @@ export default function PdfUploader({ fileName }: { fileName: string | null }) {
 
   function getSize(sizeInBytes: number) {
     const sizeInMB = sizeInBytes / (1024 * 1024);
+    if(sizeInMB > 20){
+      alert("File size exceeds 20 MB. Please select a smaller file.");
+      return false;
+    }
     if (sizeInMB < 1) {
       return `${(sizeInBytes / 1024).toFixed(1)} KB`;
     }
@@ -58,7 +62,7 @@ export default function PdfUploader({ fileName }: { fileName: string | null }) {
 
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-slate-700">
-            {fileName || pdfFile?.name || "No file selected"}
+            {pdfFile?.name || fileName || "No file selected"}
           </p>
           <p className="text-xs text-slate-400">{pdfFile && getSize(pdfFile.size)}</p>
         </div>

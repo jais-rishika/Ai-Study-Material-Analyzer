@@ -1,25 +1,73 @@
-'use client';
+
+"use client";
+
+import {
+  useActionState,
+  useEffect,
+  useState,
+  useTransition,
+  startTransition,
+} from "react";
 import PdfUploader from "./pdfUploader";
 import PageSelector from "./pageSelector";
 import CreateButton from "./createButton";
-import { generateStudyMaterial}  from "../../actions/generate-study-material";
-import { startTransition } from "react";
-import { useActionState } from "react";
 
-export default function KnowledgeBase({ fileName }: { fileName: string | null }) {
-  const [formState,action,isPending]=useActionState(generateStudyMaterial,{
-    ok: false,
-    message: "",
-  });
+import {
+  generateStudyMaterial,
+  clearStudySession,
+} from "../../actions/generate-study-material";
 
-  const handleSubmit= async(event: React.SubmitEvent<HTMLFormElement>)=>{
+export default function KnowledgeBase({
+  fileName,
+}: {
+  fileName: string | null;
+}) {
+  const [formState, action, isPending] = useActionState(
+    generateStudyMaterial,
+    {
+      ok: false,
+      message: "",
+    }
+  );
+
+  const [sessionMode, setSessionMode] = useState<
+    "choice" | "continue" | "new"
+  >(fileName ? "choice" : "new");
+
+  const [isClearing, startClearTransition] = useTransition();
+  const [uploaderKey, setUploaderKey] = useState(0);
+  const [localMessage, setLocalMessage] = useState("");
+
+  // After successful generation, show the current session.
+  useEffect(() => {
+    if (formState.ok) {
+      setSessionMode("continue");
+    }
+  }, [formState.ok]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData=new FormData(event.currentTarget);
-    startTransition(()=>{
+
+    const formData = new FormData(event.currentTarget);
+
+    startTransition(() => {
       action(formData);
     });
-    
-  }
+  };
+
+  const handleNewSession = () => {
+    startClearTransition(async () => {
+      const result = await clearStudySession();
+
+      if (result.ok) {
+        setSessionMode("new");
+        setUploaderKey((previous) => previous + 1);
+        setLocalMessage("");
+      } else {
+        setLocalMessage(result.message);
+      }
+    });
+  };
 
   return (
     <div className="sticky top-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -35,18 +83,71 @@ export default function KnowledgeBase({ fileName }: { fileName: string | null })
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        <PdfUploader fileName={fileName}/>
+      {sessionMode === "choice" ? (
+        <div className="mt-6 space-y-4">
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+            <p className="font-semibold text-slate-800">
+              Previous study session found
+            </p>
 
-        <PageSelector />
+            <p className="mt-2 break-all text-sm text-slate-600">
+              {fileName}
+            </p>
 
-        {!isPending && formState.message}
+            <p className="mt-2 text-xs text-slate-500">
+              Would you like to continue with this PDF or start fresh?
+            </p>
+          </div>
 
-        <div className="border-t border-slate-100 pt-5">
-          <CreateButton isPending={isPending}/>
+          <button
+            type="button"
+            onClick={() => setSessionMode("continue")}
+            className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500"
+          >
+            Continue Previous Session
+          </button>
+
+          <button
+            type="button"
+            disabled={isClearing}
+            onClick={handleNewSession}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {isClearing ? "Starting fresh..." : "Start New Session"}
+          </button>
+
+          {localMessage && (
+            <p className="text-sm text-red-600">{localMessage}</p>
+          )}
         </div>
-      </form>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          {sessionMode === "continue" && (
+            <input
+              type="hidden"
+              name="useExistingPdf"
+              value="on"
+            />
+          )}
 
+          <PdfUploader
+            key={uploaderKey}
+            fileName={sessionMode === "continue" ? fileName : null}
+          />
+
+          <PageSelector />
+
+          {(formState.message || localMessage) && (
+            <p className="text-sm text-slate-600">
+              {localMessage || formState.message}
+            </p>
+          )}
+
+          <div className="border-t border-slate-100 pt-5">
+            <CreateButton isPending={isPending} />
+          </div>
+        </form>
+      )}
     </div>
   );
 }
