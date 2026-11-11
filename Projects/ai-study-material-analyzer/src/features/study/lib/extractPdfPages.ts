@@ -34,7 +34,14 @@ export async function extractPdfPages(
 
   const pdfBytes = await newPdf.save();
 
-  return new File([pdfBytes], file.name, {
+  const pdfBuffer = new ArrayBuffer(pdfBytes.length);
+  new Uint8Array(pdfBuffer).set(pdfBytes);
+
+  const pdfBlob = new Blob([pdfBuffer], {
+    type: "application/pdf",
+  });
+  
+  return new File([pdfBlob], file.name, {
     type: "application/pdf",
   });
 }
